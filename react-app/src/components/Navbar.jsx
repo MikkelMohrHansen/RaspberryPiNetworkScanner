@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 const navItems = [
-  { name: "IpHandling", to: "/iphandling" },
+  { name: "Ip Handling", to: "/iphandling" },
   { name: "Scans", to: "/scans" },
 ];
 
