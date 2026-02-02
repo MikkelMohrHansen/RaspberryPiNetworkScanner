@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 class DB_Connections:
 
-    def __init__(self, db_path: str = "SqliteDB.sqlite"):
+    def __init__(self, db_path: str = "Database.Sqlite"):
         self.db_path = db_path
 
 

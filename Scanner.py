@@ -13,7 +13,8 @@ def getApproved():
     return flask.jsonify(data), 200
 @Scanner_bp.route("/getUnapproved", methods=['GET'])
 def getUnapproved():
-    return flask.jsonify(DB_Data.getUnapproved()), 200
+    data = DB_Data.getUnapproved()
+    return flask.jsonify(data), 200
 @Scanner_bp.route("/addApproved", methods=['POST'])
 def addApproved():
     return "!"

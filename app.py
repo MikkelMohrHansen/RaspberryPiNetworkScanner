@@ -9,8 +9,8 @@ def home():
     return "Api Køre"
 
 
-app.register_blueprint(user_bp, url_prefix="/api/v1.0/user")
-app.register_blueprint(Scanner_bp, url_prefix="/api/v1.0/Scanner")
+app.register_blueprint(user_bp, url_prefix="/api/v1/user")
+app.register_blueprint(Scanner_bp, url_prefix="/api/v1/Scanner")
 
 if __name__ == "__main__":
     app.run(debug=True)
