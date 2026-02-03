@@ -1,0 +1,18 @@
+
+=== TABLE: ApprovedAddresses ===
+(empty)
+
+=== TABLE: UnApprovedAddresses ===
+
+Row 1:
+  id: 1
+  mac_address: aa:bb:cc:dd:ee:ff
+  ip_address: 192.168.1.123
+  hostname: device-a
+  description: None
+  vendor: Unknown
+  first_seen: 2026-02-03 20:08:57
+  last_seen: 2026-02-03 20:09:08
+
+=== TABLE: Users ===
+(empty)
