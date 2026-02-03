@@ -1,15 +1,26 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from Endpoints.user import user_bp
 from Endpoints.ScannerEndpoints import Scanner_bp
 
 app = Flask(__name__)
 
+CORS(
+    app,
+    resources={r"/*": {"origins": [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://192.168.1.200:3000",
+    ]}},
+    supports_credentials=True
+)
+
 @app.route("/")
 def home():
     return "Api Køre"
 
-app.register_blueprint(user_bp, url_prefix="/api/v1/user")
-app.register_blueprint(Scanner_bp, url_prefix="/api/v1/Scannerdb")
+app.register_blueprint(user_bp, url_prefix="/api/v1/")
+app.register_blueprint(Scanner_bp, url_prefix="/api/v1/")
 
 @app.post("/dataIngression")
 def data_ingression():

@@ -26,7 +26,7 @@ def _run(sql: str, params: tuple = ()) -> None:
 def get_approved() -> list[dict]:
     return _fetch_all(
         """
-        SELECT mac_address, ip_address, hostname, description, vendor, first_seen, last_seen
+        SELECT mac_address, ip_address, description, vendor, first_seen, last_seen
         FROM ApprovedAddresses
         ORDER BY last_seen DESC
         """
@@ -36,7 +36,7 @@ def get_approved() -> list[dict]:
 def get_unapproved() -> list[dict]:
     return _fetch_all(
         """
-        SELECT mac_address, ip_address, hostname, description, vendor, first_seen, last_seen
+        SELECT mac_address, ip_address, description, vendor, first_seen, last_seen
         FROM UnApprovedAddresses
         ORDER BY last_seen DESC
         """
@@ -46,7 +46,6 @@ def get_unapproved() -> list[dict]:
 def add_unapproved(
     mac_address: str,
     ip_address: str,
-    hostname: str | None = None,
     description: str | None = None,
     vendor: str | None = None,
     first_seen: str | None = None,
@@ -64,23 +63,21 @@ def add_unapproved(
 
     _run(
         """
-        INSERT INTO UnApprovedAddresses (mac_address, ip_address, hostname, description, vendor, first_seen, last_seen)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO UnApprovedAddresses (mac_address, ip_address, description, vendor, first_seen, last_seen)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(mac_address, ip_address) DO UPDATE SET
-          hostname    = COALESCE(excluded.hostname,    UnApprovedAddresses.hostname),
           description = COALESCE(excluded.description, UnApprovedAddresses.description),
           vendor      = COALESCE(excluded.vendor,      UnApprovedAddresses.vendor),
           first_seen  = COALESCE(UnApprovedAddresses.first_seen, excluded.first_seen),
           last_seen   = excluded.last_seen
         """,
-        (mac, ip, hostname, description, vendor, fs, ls),
+        (mac, ip, description, vendor, fs, ls),
     )
 
 
 def add_approved(
     mac_address: str,
     ip_address: str,
-    hostname: str | None = None,
     description: str | None = None,
     vendor: str | None = None,
     first_seen: str | None = None,
@@ -98,23 +95,21 @@ def add_approved(
 
     _run(
         """
-        INSERT INTO ApprovedAddresses (mac_address, ip_address, hostname, description, vendor, first_seen, last_seen)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ApprovedAddresses (mac_address, ip_address, description, vendor, first_seen, last_seen)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(mac_address, ip_address) DO UPDATE SET
-          hostname    = COALESCE(excluded.hostname,    ApprovedAddresses.hostname),
           description = COALESCE(excluded.description, ApprovedAddresses.description),
           vendor      = COALESCE(excluded.vendor,      ApprovedAddresses.vendor),
           first_seen  = COALESCE(ApprovedAddresses.first_seen, excluded.first_seen),
           last_seen   = excluded.last_seen
         """,
-        (mac, ip, hostname, description, vendor, fs, ls),
+        (mac, ip, description, vendor, fs, ls),
     )
 
 
 def update_unapproved(
     mac_address: str,
     ip_address: str,
-    hostname: str | None = None,
     description: str | None = None,
     vendor: str | None = None,
     first_seen: str | None = None,
@@ -133,21 +128,19 @@ def update_unapproved(
         """
         UPDATE UnApprovedAddresses
         SET
-          hostname    = COALESCE(?, hostname),
           description = COALESCE(?, description),
           vendor      = COALESCE(?, vendor),
           first_seen  = COALESCE(?, first_seen),
           last_seen   = COALESCE(?, last_seen)
         WHERE mac_address = ? AND ip_address = ?
         """,
-        (hostname, description, vendor, first_seen, ls, mac, ip),
+        (description, vendor, first_seen, ls, mac, ip),
     )
 
 
 def update_approved(
     mac_address: str,
     ip_address: str,
-    hostname: str | None = None,
     description: str | None = None,
     vendor: str | None = None,
     first_seen: str | None = None,
@@ -166,14 +159,13 @@ def update_approved(
         """
         UPDATE ApprovedAddresses
         SET
-          hostname    = COALESCE(?, hostname),
           description = COALESCE(?, description),
           vendor      = COALESCE(?, vendor),
           first_seen  = COALESCE(?, first_seen),
           last_seen   = COALESCE(?, last_seen)
         WHERE mac_address = ? AND ip_address = ?
         """,
-        (hostname, description, vendor, first_seen, ls, mac, ip),
+        (description, vendor, first_seen, ls, mac, ip),
     )
 
 

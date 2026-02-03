@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { setAuthSessionCookie } from "@/lib/authCookie";
 
 export const Login = ({ onLogin }) => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,13 +33,13 @@ export const Login = ({ onLogin }) => {
           <div className="w-full rounded-2xl border border-foreground/10 bg-foreground/5 px-6 py-10 shadow-sm">
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Email</label>
+                <label className="text-sm font-medium">Username</label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Username"
                   className="h-10 w-full rounded-xl border border-foreground/10 bg-background px-3 text-sm outline-none placeholder:text-foreground/40 focus:border-foreground/20 focus:ring-2 focus:ring-foreground/10"
                 />
               </div>

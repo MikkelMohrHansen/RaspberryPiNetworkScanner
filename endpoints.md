@@ -38,9 +38,13 @@ Database
         Kolonner: ID, IP adresse, MAC adresse, Description, Vendor, first seen, last seen
 
 
+Til nyt python venv
 
+Lav venv
+python3 -m venv .venv
 
+Aktiver venv
+source .venv/bin/activate
 
-192.168.1.20, A3:23:62:6D:4C
-192.168.1.21, A3:23:62:6D:4C
-192.168.1.20, A3:23:62:6D:29
+installer requirements
+pip install -r requirements.txt
