@@ -1,13 +1,12 @@
-import flask
-from user import user_bp
-from Scanner import Scanner_bp
+from flask import Flask, request, jsonify
+from Endpoints.user import user_bp
+from Endpoints.ScannerEndpoints import Scanner_bp
 
-app = flask.Flask(__name__)
+app = Flask(__name__)
 
 @app.route("/")
 def home():
     return "Api Køre"
-
 
 app.register_blueprint(user_bp, url_prefix="/api/v1/user")
 app.register_blueprint(Scanner_bp, url_prefix="/api/v1/Scannerdb")
@@ -24,7 +23,7 @@ def data_ingression():
     devices = data.get("devices")
 
     if not scanned_at or not target or not isinstance(devices, list):
-        return jsonfiy({"ok": False, "error": "Expected scanned_at, target, devices(list)"}),400
+        return jsonify({"ok": False, "error": "Expected scanned_at, target, devices(list)"}),400
 
     for d in devices:
         if "IP" not in d or "MAC" not in d:

@@ -1,106 +1,199 @@
+# Database/DB_Data.py
+from __future__ import annotations
+
+from datetime import datetime
 from Database.DB_Connections import DB_Connections
 
 _db = DB_Connections("Database/SqliteDB")
 
 
-def getApproved():
+def _now_sqlite() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _fetch_all(sql: str, params: tuple = ()) -> list[dict]:
     with _db.transaction() as conn:
-        cur = conn.execute("SELECT * FROM ApprovedAddresses;")
+        cur = conn.execute(sql, params)
         rows = cur.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(r) for r in rows]
 
-def getUnapproved():
+
+def _run(sql: str, params: tuple = ()) -> None:
     with _db.transaction() as conn:
-        cur = conn.execute("SELECT * FROM UnapprovedAddresses;")
-        rows = cur.fetchall()
-        return [dict(row) for row in rows]
+        conn.execute(sql, params)
 
-def add_approved(ip_address: str, mac_address: str, description: str | None = None):
 
-    ip_address = (ip_address or "").strip()
-    mac_address = (mac_address or "").strip().lower()
-    description = (description or "").strip() if description else None
+def get_approved() -> list[dict]:
+    return _fetch_all(
+        """
+        SELECT mac_address, ip_address, hostname, description, vendor, first_seen, last_seen
+        FROM ApprovedAddresses
+        ORDER BY last_seen DESC
+        """
+    )
 
-    if not ip_address or not mac_address:
-        return {"ok": False, "error": "IP Address or MAC Address is required"}, 400
 
-    with _db.transaction() as conn:
-        conn.execute(
-            """
-            INSERT INTO ApprovedAddresses
-                (ip_address, mac_address, description, first_seen, last_seen)
-            VALUES (?, ?, ?, datetime('now'), datetime('now'))
-            ON CONFLICT(mac_address) DO UPDATE SET
-                ip_address = excluded.ip_address,
-                description = COALESCE(excluded.description, ApprovedAddresses.description),
-                last_seen = datetime('now');
-            """,
-            (ip_address, mac_address, description),
-        )
+def get_unapproved() -> list[dict]:
+    return _fetch_all(
+        """
+        SELECT mac_address, ip_address, hostname, description, vendor, first_seen, last_seen
+        FROM UnApprovedAddresses
+        ORDER BY last_seen DESC
+        """
+    )
 
-    return {"ok": True, "mac_address": mac_address}
 
-def update_approved(mac_address: str, ip_address: str | None = None, description: str | None = None):
-    with _db.transaction() as conn:
-        conn.execute(
-            """
-            UPDATE ApprovedAddresses
-            SET
-                ip_address = COALESCE(?, ip_address),
-                description = COALESCE(?, description),
-                last_seen = datetime('now')
-            WHERE mac_address = ?;
-            """,
-            (ip_address, description, mac_address),
-        )
-    return {"ok": True, "mac_address": mac_address}
+def add_unapproved(
+    mac_address: str,
+    ip_address: str,
+    hostname: str | None = None,
+    description: str | None = None,
+    vendor: str | None = None,
+    first_seen: str | None = None,
+    last_seen: str | None = None,
+) -> None:
+    mac = (mac_address or "").strip().lower()
+    ip = (ip_address or "").strip()
+    if not mac:
+        raise ValueError("mac_address is required")
+    if not ip:
+        raise ValueError("ip_address is required")
 
-def update_unapproved(mac_address: str, ip_address: str | None = None, reason: str | None = None):
-    with _db.transaction() as conn:
-        conn.execute(
-            """
-            UPDATE UnapprovedAddresses
-            SET
-                ip_address = COALESCE(?, ip_address),
-                reason = COALESCE(?, reason),
-                last_seen = datetime('now')
-            WHERE mac_address = ?;
-            """,
-            (ip_address, reason, mac_address),
-        )
+    fs = first_seen or _now_sqlite()
+    ls = last_seen or _now_sqlite()
 
-    return {"ok": True, "mac_address": mac_address}
+    _run(
+        """
+        INSERT INTO UnApprovedAddresses (mac_address, ip_address, hostname, description, vendor, first_seen, last_seen)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(mac_address, ip_address) DO UPDATE SET
+          hostname    = COALESCE(excluded.hostname,    UnApprovedAddresses.hostname),
+          description = COALESCE(excluded.description, UnApprovedAddresses.description),
+          vendor      = COALESCE(excluded.vendor,      UnApprovedAddresses.vendor),
+          first_seen  = COALESCE(UnApprovedAddresses.first_seen, excluded.first_seen),
+          last_seen   = excluded.last_seen
+        """,
+        (mac, ip, hostname, description, vendor, fs, ls),
+    )
 
-def remove_approved(mac_address: str):
-    with _db.transaction() as conn:
-        conn.execute(
-            """
-            DELETE FROM ApprovedAddresses
-            WHERE mac_address = ?;
-            """,
-            (mac_address,),
-        )
-    return {"ok": True, "mac_address": mac_address}
 
-def add_unapproved(ip_address: str, mac_address: str):
-    ip_address = (ip_address or "").strip()
-    mac_address = (mac_address or "").strip().lower()
+def add_approved(
+    mac_address: str,
+    ip_address: str,
+    hostname: str | None = None,
+    description: str | None = None,
+    vendor: str | None = None,
+    first_seen: str | None = None,
+    last_seen: str | None = None,
+) -> None:
+    mac = (mac_address or "").strip().lower()
+    ip = (ip_address or "").strip()
+    if not mac:
+        raise ValueError("mac_address is required")
+    if not ip:
+        raise ValueError("ip_address is required")
 
-    if not ip_address or not mac_address:
-        return {"ok": False, "error": "IP Address or MAC Address is required"}, 400
+    fs = first_seen or _now_sqlite()
+    ls = last_seen or _now_sqlite()
 
-    with _db.transaction() as conn:
-        conn.execute(
-            """
-            INSERT INTO UnapprovedAddresses
-                (ip_address, mac_address, first_seen, last_seen)
-            VALUES (?, ?, datetime('now'), datetime('now'))
-            ON CONFLICT(mac_address) DO UPDATE SET
-                ip_address = excluded.ip_address,
-                last_seen = datetime('now');
-            """,
-            (ip_address, mac_address),
-        )
+    _run(
+        """
+        INSERT INTO ApprovedAddresses (mac_address, ip_address, hostname, description, vendor, first_seen, last_seen)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(mac_address, ip_address) DO UPDATE SET
+          hostname    = COALESCE(excluded.hostname,    ApprovedAddresses.hostname),
+          description = COALESCE(excluded.description, ApprovedAddresses.description),
+          vendor      = COALESCE(excluded.vendor,      ApprovedAddresses.vendor),
+          first_seen  = COALESCE(ApprovedAddresses.first_seen, excluded.first_seen),
+          last_seen   = excluded.last_seen
+        """,
+        (mac, ip, hostname, description, vendor, fs, ls),
+    )
 
-    return {"ok": True, "mac_address": mac_address}
 
+def update_unapproved(
+    mac_address: str,
+    ip_address: str,
+    hostname: str | None = None,
+    description: str | None = None,
+    vendor: str | None = None,
+    first_seen: str | None = None,
+    last_seen: str | None = None,
+) -> None:
+    mac = (mac_address or "").strip().lower()
+    ip = (ip_address or "").strip()
+    if not mac:
+        raise ValueError("mac_address is required")
+    if not ip:
+        raise ValueError("ip_address is required")
+
+    ls = last_seen or _now_sqlite()
+
+    _run(
+        """
+        UPDATE UnApprovedAddresses
+        SET
+          hostname    = COALESCE(?, hostname),
+          description = COALESCE(?, description),
+          vendor      = COALESCE(?, vendor),
+          first_seen  = COALESCE(?, first_seen),
+          last_seen   = COALESCE(?, last_seen)
+        WHERE mac_address = ? AND ip_address = ?
+        """,
+        (hostname, description, vendor, first_seen, ls, mac, ip),
+    )
+
+
+def update_approved(
+    mac_address: str,
+    ip_address: str,
+    hostname: str | None = None,
+    description: str | None = None,
+    vendor: str | None = None,
+    first_seen: str | None = None,
+    last_seen: str | None = None,
+) -> None:
+    mac = (mac_address or "").strip().lower()
+    ip = (ip_address or "").strip()
+    if not mac:
+        raise ValueError("mac_address is required")
+    if not ip:
+        raise ValueError("ip_address is required")
+
+    ls = last_seen or _now_sqlite()
+
+    _run(
+        """
+        UPDATE ApprovedAddresses
+        SET
+          hostname    = COALESCE(?, hostname),
+          description = COALESCE(?, description),
+          vendor      = COALESCE(?, vendor),
+          first_seen  = COALESCE(?, first_seen),
+          last_seen   = COALESCE(?, last_seen)
+        WHERE mac_address = ? AND ip_address = ?
+        """,
+        (hostname, description, vendor, first_seen, ls, mac, ip),
+    )
+
+
+def remove_approved(mac_address: str, ip_address: str) -> None:
+    mac = (mac_address or "").strip().lower()
+    ip = (ip_address or "").strip()
+    if not mac:
+        raise ValueError("mac_address is required")
+    if not ip:
+        raise ValueError("ip_address is required")
+
+    _run("DELETE FROM ApprovedAddresses WHERE mac_address = ? AND ip_address = ?", (mac, ip))
+
+
+def remove_unapproved(mac_address: str, ip_address: str) -> None:
+    mac = (mac_address or "").strip().lower()
+    ip = (ip_address or "").strip()
+    if not mac:
+        raise ValueError("mac_address is required")
+    if not ip:
+        raise ValueError("ip_address is required")
+
+    _run("DELETE FROM UnApprovedAddresses WHERE mac_address = ? AND ip_address = ?", (mac, ip))
