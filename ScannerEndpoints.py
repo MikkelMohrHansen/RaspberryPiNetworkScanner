@@ -11,22 +11,55 @@ Scanner_bp = flask.Blueprint("Scanner", __name__)
 def getApproved():
     data = DB_Data.getApproved()
     return flask.jsonify(data), 200
+
 @Scanner_bp.route("/getUnapproved", methods=['GET'])
 def getUnapproved():
     data = DB_Data.getUnapproved()
     return flask.jsonify(data), 200
+
 @Scanner_bp.route("/addApproved", methods=['POST'])
 def addApproved():
-    return "!"
+    data = flask.request.json
+    ip_address = data.get("ip_address")
+    mac_address = data.get("mac_address")
+    description = data.get("description")
+
+    result = DB_Data.add_approved(ip_address, mac_address, description)
+    return flask.jsonify(result), 200
+
 @Scanner_bp.route("/updateApproved", methods=['PUT'])
 def updateApproved():
-    return "!#¤¤"
+    data = flask.request.json
+    ip_address = data.get("ip_address")
+    mac_address = data.get("mac_address")
+    description = data.get("description")
+
+    result = DB_Data.update_approved(mac_address, ip_address, description)
+    return flask.jsonify(result), 200
+
 @Scanner_bp.route("/updateUnApproved", methods=['PUT'])
 def updateUnApproved():
-    return "!782346"
+    data = flask.request.json
+    ip_address = data.get("ip_address")
+    mac_address = data.get("mac_address")
+    reason = data.get("reason")
+
+    result = DB_Data.update_unapproved(mac_address, ip_address, reason)
+    return flask.jsonify(result), 200
+
 @Scanner_bp.route("/removeApproved", methods=['DELETE'])
 def removeApproved():
-    return "removed"
+    data = flask.request.json
+    mac_address = data.get("mac_address")
+
+    result = DB_Data.remove_approved(mac_address)
+    return flask.jsonify(result), 200
+
 @Scanner_bp.route("/addUnapproved", methods=['POST'])
 def addUnapproved():
-    return "!skska"
+    data = flask.request.json
+    ip_address = data.get("ip_address")
+    mac_address = data.get("mac_address")
+
+    result = DB_Data.add_unapproved(ip_address, mac_address)
+    return flask.jsonify(result), 200

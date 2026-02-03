@@ -1,7 +1,5 @@
 from Database.DB_Connections import DB_Connections
 
-
-
 _db = DB_Connections("Database/SqliteDB")
 
 
@@ -18,6 +16,7 @@ def getUnapproved():
         return [dict(row) for row in rows]
 
 def add_approved(ip_address: str, mac_address: str, description: str | None = None):
+
     ip_address = (ip_address or "").strip()
     mac_address = (mac_address or "").strip().lower()
     description = (description or "").strip() if description else None
@@ -40,6 +39,7 @@ def add_approved(ip_address: str, mac_address: str, description: str | None = No
         )
 
     return {"ok": True, "mac_address": mac_address}
+
 def update_approved(mac_address: str, ip_address: str | None = None, description: str | None = None):
     with _db.transaction() as conn:
         conn.execute(
@@ -54,7 +54,6 @@ def update_approved(mac_address: str, ip_address: str | None = None, description
             (ip_address, description, mac_address),
         )
     return {"ok": True, "mac_address": mac_address}
-
 
 def update_unapproved(mac_address: str, ip_address: str | None = None, reason: str | None = None):
     with _db.transaction() as conn:
@@ -71,6 +70,7 @@ def update_unapproved(mac_address: str, ip_address: str | None = None, reason: s
         )
 
     return {"ok": True, "mac_address": mac_address}
+
 def remove_approved(mac_address: str):
     with _db.transaction() as conn:
         conn.execute(
