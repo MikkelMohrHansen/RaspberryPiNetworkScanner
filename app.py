@@ -1,16 +1,16 @@
-import flask as flask
+import flask
+from user import user_bp
+from Scanner import Scanner_bp
 
 app = flask.Flask(__name__)
 
-@app.route('/')
+@app.route("/")
 def home():
-    return "Welcome to the Raspberry Pi Network Scanner!"
-<<<<<<< Updated upstream
-=======
-@app.route('/scan')
-def scan():
-    return "Scanning for devices..."
->>>>>>> Stashed changes
+    return "Api Køre"
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+
+app.register_blueprint(user_bp, url_prefix="/api/v1/user")
+app.register_blueprint(Scanner_bp, url_prefix="/api/v1/Scanner")
+
+if __name__ == "__main__":
+    app.run(debug=True)
