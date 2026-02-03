@@ -21,7 +21,6 @@ def add_unapproved():
     DB_Data.add_unapproved(
         mac_address=data.get("mac_address"),
         ip_address=data.get("ip_address"),
-        hostname=data.get("hostname"),
         description=data.get("description"),
         vendor=data.get("vendor"),
         first_seen=data.get("first_seen"),
@@ -35,7 +34,6 @@ def add_approved():
     DB_Data.add_approved(
         mac_address=data.get("mac_address"),
         ip_address=data.get("ip_address"),
-        hostname=data.get("hostname"),
         description=data.get("description"),
         vendor=data.get("vendor"),
         first_seen=data.get("first_seen"),
@@ -49,7 +47,6 @@ def update_unapproved():
     DB_Data.update_unapproved(
         mac_address=data.get("mac_address"),
         ip_address=data.get("ip_address"),
-        hostname=data.get("hostname"),
         description=data.get("description"),
         vendor=data.get("vendor"),
         first_seen=data.get("first_seen"),
@@ -63,7 +60,6 @@ def update_approved():
     DB_Data.update_approved(
         mac_address=data.get("mac_address"),
         ip_address=data.get("ip_address"),
-        hostname=data.get("hostname"),
         description=data.get("description"),
         vendor=data.get("vendor"),
         first_seen=data.get("first_seen"),

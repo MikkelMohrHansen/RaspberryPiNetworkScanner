@@ -1,4 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+const API_BASE = (import.meta?.env?.VITE_API_URL || "http://192.168.1.200:5000/api/v1").replace(/\/$/, "");
 
 function Card({ title, children, right }) {
   return (
@@ -15,14 +17,11 @@ function Card({ title, children, right }) {
 function Table({ columns, children }) {
   return (
     <div className="overflow-auto rounded-xl border border-foreground/10">
-      <table className="w-full text-sm">
+      <table className="w-full table-fixed text-sm">
         <thead className="bg-foreground/5">
           <tr>
             {columns.map((c) => (
-              <th
-                key={c}
-                className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold text-foreground/70"
-              >
+              <th key={c} className="px-3 py-2 text-left text-xs font-semibold text-foreground/70">
                 {c}
               </th>
             ))}
@@ -34,8 +33,12 @@ function Table({ columns, children }) {
   );
 }
 
-function Td({ children, muted }) {
-  return <td className={`px-3 py-2 align-top ${muted ? "text-foreground/60" : ""}`}>{children}</td>;
+function Td({ children, muted, colSpan }) {
+  return (
+    <td colSpan={colSpan} className={`px-3 py-2 align-top ${muted ? "text-foreground/60" : ""}`}>
+      {children}
+    </td>
+  );
 }
 
 function Pill({ children, tone = "neutral" }) {
@@ -53,70 +56,292 @@ function Pill({ children, tone = "neutral" }) {
   );
 }
 
-export const IpHandling = () => {
-  const allowed = [
-    { ip: "10.27.64.79", mac: "11:22:33:44:55:66", desc: "Router (Gateway)", reg: "2026-02-02", status: "Tilladt" },
-  ];
+function formatDateTime(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString("da-DK", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 
-  const unknown = [
-    { ip: "10.27.64.79", mac: "DE:AD:BE:EF:CA:FA", vendor: "Unknown", status: "Ny" },
-    { ip: "10.27.64.78", mac: "DE:AD:BE:EF:CA:FB", vendor: "Unknown", status: "Ny" },
-    { ip: "10.27.64.77", mac: "DE:AD:BE:EF:CA:FC", vendor: "Unknown", status: "Ny" },
-    { ip: "10.27.64.76", mac: "DE:AD:BE:EF:CA:FD", vendor: "Unknown", status: "Ny" },
-    { ip: "10.27.64.75", mac: "DE:AD:BE:EF:CA:FE", vendor: "Unknown", status: "Ny" },
-    { ip: "10.27.64.74", mac: "DE:AD:BE:EF:CA:FF", vendor: "Unknown", status: "Ny" },
-    { ip: "10.27.64.73", mac: "DE:AD:BE:EF:CA:CA", vendor: "Unknown", status: "Ny" },
-  ];
+async function fetchJson(url, { method = "GET", body, signal } = {}) {
+  const res = await fetch(url, {
+    method,
+    signal,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText}${text ? ` – ${text}` : ""}`);
+  }
+  // Nogle endpoints returnerer måske tomt body ved DELETE – håndter begge
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return null;
+  return res.json();
+}
+
+export const IpHandling = () => {
+  const [allowed, setAllowed] = useState([]);
+  const [unknown, setUnknown] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [busyMacs, setBusyMacs] = useState(() => new Set());
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const [approvedData, unapprovedData] = await Promise.all([
+          fetchJson(`${API_BASE}/getApproved`),
+          fetchJson(`${API_BASE}/getUnapproved`),
+        ]);
+
+        setAllowed(Array.isArray(approvedData) ? approvedData : []);
+        setUnknown(Array.isArray(unapprovedData) ? unapprovedData : []);
+      } catch (e) {
+        setError(e?.message || "Kunne ikke hente data fra API");
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const handleDisallow = async (row) => {
+    const mac = row?.mac_address;
+    const ip = row?.ip_address;
+    if (!mac || !ip) return;
+
+    const key = `${mac}|${ip}`;
+
+    // backup til rollback
+    const prevUnknown = unknown;
+    const prevAllowed = allowed;
+
+    setBusyMacs((s) => new Set([...s, key]));
+    setError("");
+
+    // Optimistisk UI: fjern fra allowed, tilføj til unknown
+    setAllowed((list) => list.filter((x) => !(x?.mac_address === mac && x?.ip_address === ip)));
+    setUnknown((list) => [
+      {
+        mac_address: mac,
+        ip_address: ip,
+        description: row.description ?? "",
+        vendor: row.vendor ?? null,
+        first_seen: row.first_seen ?? null,
+        last_seen: row.last_seen ?? null,
+      },
+      ...list,
+    ]);
+
+    try {
+      // 1) addUnapproved (POST)
+      await fetchJson(`${API_BASE}/addUnapproved`, {
+        method: "POST",
+        body: {
+          mac_address: mac,
+          ip_address: ip,
+          description: row.description ?? null,
+          vendor: row.vendor ?? null,
+          first_seen: row.first_seen ?? null,
+          last_seen: row.last_seen ?? null,
+        },
+      });
+
+      // 2) removeApproved (DELETE) - KRÆVER både mac + ip i dit backend
+      await fetchJson(`${API_BASE}/removeApproved`, {
+        method: "DELETE",
+        body: {
+          mac_address: mac,
+          ip_address: ip,
+        },
+      });
+
+      // 3) sync state fra DB
+      const [approvedData, unapprovedData] = await Promise.all([
+        fetchJson(`${API_BASE}/getApproved`),
+        fetchJson(`${API_BASE}/getUnapproved`),
+      ]);
+
+      setAllowed(Array.isArray(approvedData) ? approvedData : []);
+      setUnknown(Array.isArray(unapprovedData) ? unapprovedData : []);
+    } catch (e) {
+      // rollback
+      setUnknown(prevUnknown);
+      setAllowed(prevAllowed);
+      setError(e?.message || "Kunne ikke fjerne tilladelse (API fejl)");
+      console.error(e);
+    } finally {
+      setBusyMacs((s) => {
+        const next = new Set(s);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
+
+  const handleAllow = async (row) => {
+    const mac = row?.mac_address;
+    const ip = row?.ip_address;
+    if (!mac || !ip) return;
+
+    const key = `${mac}|${ip}`;
+
+    // backup til rollback
+    const prevUnknown = unknown;
+    const prevAllowed = allowed;
+
+    setBusyMacs((s) => new Set([...s, key]));
+    setError("");
+
+    // Optimistisk UI: fjern fra unknown, tilføj til allowed
+    setUnknown((list) => list.filter((x) => !(x?.mac_address === mac && x?.ip_address === ip)));
+    setAllowed((list) => [
+      {
+        mac_address: mac,
+        ip_address: ip,
+        description: row.description ?? "",
+        vendor: row.vendor ?? null,
+        first_seen: row.first_seen ?? null,
+        last_seen: row.last_seen ?? null,
+      },
+      ...list,
+    ]);
+
+    try {
+      // 1) addApproved (POST)
+      await fetchJson(`${API_BASE}/addApproved`, {
+        method: "POST",
+        body: {
+          mac_address: mac,
+          ip_address: ip,
+          description: row.description ?? null,
+          vendor: row.vendor ?? null,
+          first_seen: row.first_seen ?? null,
+          last_seen: row.last_seen ?? null,
+        },
+      });
+
+      // 2) removeUnapproved (DELETE) - KRÆVER både mac + ip i dit backend
+      await fetchJson(`${API_BASE}/removeUnapproved`, {
+        method: "DELETE",
+        body: {
+          mac_address: mac,
+          ip_address: ip,
+        },
+      });
+
+      // 3) sync state fra DB (så sortering/last_seen matcher DB)
+      const [approvedData, unapprovedData] = await Promise.all([
+        fetchJson(`${API_BASE}/getApproved`),
+        fetchJson(`${API_BASE}/getUnapproved`),
+      ]);
+
+      setAllowed(Array.isArray(approvedData) ? approvedData : []);
+      setUnknown(Array.isArray(unapprovedData) ? unapprovedData : []);
+    } catch (e) {
+      // rollback
+      setUnknown(prevUnknown);
+      setAllowed(prevAllowed);
+      setError(e?.message || "Kunne ikke tillade (API fejl)");
+      console.error(e);
+    } finally {
+      setBusyMacs((s) => {
+        const next = new Set(s);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
 
   return (
     <section className="relative min-h-screen px-4 pt-16">
       <div className="mx-auto w-full max-w-7xl pb-10">
-        <h2 className="mb-4 text-lg font-semibold">IP-håndtering</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">IP-håndtering</h2>
 
-        {/* Mere bredde til tables:
-            - én kolonne på mindre skærme
-            - 2 kolonner på store (kan ændres til xl:grid-cols-2 hvis du vil have det senere) */}
+          <div className="flex items-center gap-2">
+            {loading ? <Pill>Henter…</Pill> : null}
+            {error ? <Pill tone="bad">Fejl</Pill> : null}
+            <span className="text-xs text-foreground/60">API: {API_BASE}</span>
+          </div>
+        </div>
+
+        {error ? (
+          <div className="mb-6 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
+            <div className="font-semibold">Der opstod en fejl</div>
+            <div className="mt-1 text-xs opacity-80">{error}</div>
+          </div>
+        ) : null}
+
         <div className="grid gap-6 lg:grid-cols-2">
           <Card title="Tilladte IP'er" right={<Pill tone="ok">{allowed.length} tilladt</Pill>}>
-            <Table columns={["IP", "MAC-adresse", "Beskrivelse", "Registreret", "Status", "Handlinger"]}>
-              {allowed.map((row, idx) => (
-                <tr key={idx} className="hover:bg-foreground/5">
-                  <Td>{row.ip}</Td>
-                  <Td muted>{row.mac}</Td>
-                  <Td muted>{row.desc}</Td>
-                  <Td muted>{row.reg}</Td>
-                  <Td><Pill tone="ok">{row.status}</Pill></Td>
-                  <Td>
-                    <button
-                      className="rounded-lg border border-foreground/10 bg-background px-2 py-1 text-xs hover:bg-foreground/5"
-                      onClick={() => alert("TODO: Fjern fra tilladte")}
-                    >
-                      Fjern
-                    </button>
-                  </Td>
+            <Table columns={["IP", "MAC-adresse", "Beskrivelse", "Registreret", "Sidst set", "Handlinger"]}>
+              {allowed.length === 0 ? (
+                <tr>
+                  <Td muted colSpan={6}>{loading ? "Henter data…" : "Ingen tilladte IP'er endnu."}</Td>
                 </tr>
-              ))}
+              ) : (
+                allowed.map((row) => (
+                  <tr key={row.mac_address || row.id} className="hover:bg-foreground/5">
+                    <Td>{row.ip_address || "—"}</Td>
+                    <Td muted>{row.mac_address || "—"}</Td>
+                    <Td muted>{row.description || "—"}</Td>
+                    <Td muted>{row.first_seen}</Td>
+                    <Td muted>{row.last_seen}</Td>
+                    <Td>
+                      <button
+                        className="rounded-lg border border-foreground/10 bg-background px-2 py-1 text-xs hover:bg-foreground/5"
+                        onClick={() => handleDisallow(row)}
+                      >
+                        Fjern
+                      </button>
+                    </Td>
+                  </tr>
+                ))
+              )}
             </Table>
           </Card>
 
           <Card title="Ukendte IP'er" right={<Pill tone="warn">{unknown.length} ukendt</Pill>}>
-            <Table columns={["IP-adresse", "MAC-adresse", "Producent", "Status", "Tillad"]}>
-              {unknown.map((row, idx) => (
-                <tr key={idx} className="hover:bg-foreground/5">
-                  <Td>{row.ip}</Td>
-                  <Td muted>{row.mac}</Td>
-                  <Td>{row.vendor}</Td>
-                  <Td><Pill tone="warn">{row.status}</Pill></Td>
-                  <Td>
-                    <button
-                      className="rounded-lg border border-foreground/10 bg-background px-2 py-1 text-xs hover:bg-foreground/5"
-                      onClick={() => alert(`TODO: Tillad ${row.ip}`)}
-                    >
-                      Tillad
-                    </button>
-                  </Td>
+            <Table columns={["IP-adresse", "MAC-adresse", "Beskrivelse", "Sidst set", "Tillad"]}>
+              {unknown.length === 0 ? (
+                <tr>
+                  <Td muted colSpan={5}>{loading ? "Henter data…" : "Ingen ukendte IP'er lige nu."}</Td>
                 </tr>
-              ))}
+              ) : (
+                unknown.map((row) => {
+                  const key = `${row.mac_address}|${row.ip_address}`;
+                  const isBusy = busyMacs.has(key);
+
+
+                  return (
+                    <tr key={key} className="hover:bg-foreground/5">
+                      <Td>{row.ip_address || "—"}</Td>
+                      <Td muted>{row.mac_address || "—"}</Td>
+                      <Td muted>{row.description || "—"}</Td>
+                      <Td muted>{formatDateTime(row.last_seen)}</Td>
+
+                      <Td>
+                        <button
+                          className={`rounded-lg border border-foreground/10 bg-background px-2 py-1 text-xs hover:bg-foreground/5 ${
+                            isBusy ? "opacity-60 pointer-events-none" : ""
+                          }`}
+                          onClick={() => handleAllow(row)}
+                        >
+                          {isBusy ? "Arbejder…" : "Tillad"}
+                        </button>
+                      </Td>
+                    </tr>
+                  );
+                })
+              )}
             </Table>
           </Card>
         </div>
