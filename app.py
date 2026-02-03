@@ -10,7 +10,7 @@ def home():
 
 
 app.register_blueprint(user_bp, url_prefix="/api/v1/user")
-app.register_blueprint(Scanner_bp, url_prefix="/api/v1/Scanner")
+app.register_blueprint(Scanner_bp, url_prefix="/api/v1/Scannerdb")
 
 if __name__ == "__main__":
     app.run(debug=True)

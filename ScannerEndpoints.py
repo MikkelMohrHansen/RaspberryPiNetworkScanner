@@ -5,7 +5,7 @@ from Database.DB_Data import *
 
 
 
-Scanner_bp = flask.Blueprint("Scanner", __name__)
+Scanner_bp = flask.Blueprint("Scannerdb", __name__)
 
 @Scanner_bp.route("/getApproved",methods=['GET'])
 def getApproved():
@@ -42,9 +42,9 @@ def updateUnApproved():
     data = flask.request.json
     ip_address = data.get("ip_address")
     mac_address = data.get("mac_address")
-    reason = data.get("reason")
+    
 
-    result = DB_Data.update_unapproved(mac_address, ip_address, reason)
+    result = DB_Data.update_unapproved(mac_address, ip_address)
     return flask.jsonify(result), 200
 
 @Scanner_bp.route("/removeApproved", methods=['DELETE'])
