@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import scapy.all as scapy
 from optparse import OptionParser
 from datetime import datetime
