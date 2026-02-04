@@ -189,3 +189,145 @@ def remove_unapproved(mac_address: str, ip_address: str) -> None:
         raise ValueError("ip_address is required")
 
     _run("DELETE FROM UnApprovedAddresses WHERE mac_address = ? AND ip_address = ?", (mac, ip))
+
+def planScan(interval: int, scan_target: str, last_scanned_at: str | None = None) -> dict:
+    if interval is None:
+        raise ValueError("interval is required")
+
+    try:
+        interval_int = int(interval)
+    except (TypeError, ValueError):
+        raise ValueError("interval must be an integer")
+
+    if interval_int <= 0:
+        raise ValueError("interval must be > 0")
+
+    target = (scan_target or "").strip()
+    if not target:
+        raise ValueError("scan_target is required")
+
+    now_dt = datetime.now()
+    next_dt = now_dt + timedelta(minutes=interval_int)
+
+    last_sql = last_scanned_at  # None ved oprettelse giver god mening
+    next_sql = next_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    _run(
+        """
+        INSERT INTO PlannedScans (interval, last_scanned_at, next_scan_at, scan_target)
+        VALUES (?, ?, ?, ?)
+        """,
+        (interval_int, last_sql, next_sql, target),
+    )
+
+    return {
+        "ok": True,
+        "interval": interval_int,
+        "last_scanned_at": last_sql,
+        "next_scan_at": next_sql,
+        "scan_target": target,
+    }
+
+
+def update_last_scan(scan_target: str, scanned_at: str | None = None) -> dict:
+    target = (scan_target or "").strip()
+    if not target:
+        raise ValueError("scan_target is required")
+
+    last_sql = scanned_at or _now_sqlite()
+
+    _run(
+        """
+        UPDATE PlannedScans
+        SET last_scanned_at = ?
+        WHERE scan_target = ?
+        """,
+        (last_sql, target),
+    )
+
+    return {
+        "ok": True,
+        "scan_target": target,
+        "last_scanned_at": last_sql,
+    }
+
+
+def clear_next_scan(scan_target: str) -> dict:
+    target = (scan_target or "").strip()
+    if not target:
+        raise ValueError("scan_target is required")
+
+    _run(
+        """
+        UPDATE PlannedScans
+        SET next_scan_at = NULL
+        WHERE scan_target = ?
+        """,
+        (target,),
+    )
+
+    return {
+        "ok": True,
+        "scan_target": target,
+        "next_scan_at": None,
+    }
+
+
+def set_last_and_next_from_interval(scan_target: str) -> dict:
+    target = (scan_target or "").strip()
+    if not target:
+        raise ValueError("scan_target is required")
+
+    now_dt = datetime.now()
+    now_sql = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    rows = _fetch_all(
+        """
+        SELECT interval
+        FROM PlannedScans
+        WHERE scan_target = ?
+        """,
+        (target,),
+    )
+
+    if not rows:
+        raise ValueError(f"No planned scan found for target: {target}")
+
+    interval_minutes = int(rows[0]["interval"])
+
+    next_dt = now_dt + timedelta(minutes=interval_minutes)
+    next_sql = next_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    _run(
+        """
+        UPDATE PlannedScans
+        SET
+            last_scanned_at = ?,
+            next_scan_at = ?
+        WHERE scan_target = ?
+        """,
+        (now_sql, next_sql, target),
+    )
+
+    return {
+        "ok": True,
+        "scan_target": target,
+        "last_scanned_at": now_sql,
+        "next_scan_at": next_sql,
+        "interval": interval_minutes,
+    }
+
+
+def get_due_planned_scans() -> list[dict]:
+    now = _now_sqlite()
+
+    return _fetch_all(
+        """
+        SELECT interval, last_scanned_at, next_scan_at, scan_target
+        FROM PlannedScans
+        WHERE next_scan_at IS NOT NULL
+          AND next_scan_at <= ?
+        ORDER BY next_scan_at ASC
+        """,
+        (now,),
+    )
