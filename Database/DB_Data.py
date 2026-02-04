@@ -2,13 +2,26 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from Database.DB_Connections import DB_Connections
 
 _db = DB_Connections("Database/SqliteDB")
 
+DK_TZ = ZoneInfo("Europe/Copenhagen")
+
+
+def _now_dt_dk() -> datetime:
+    # timezone-aware "nu" i Danmark (håndterer DST korrekt)
+    return datetime.now(DK_TZ)
+
+
+def _to_sqlite(dt: datetime) -> str:
+    # Gemmer som "YYYY-MM-DD HH:MM:SS" (lokal dansk tid)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
 
 def _now_sqlite() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return _to_sqlite(_now_dt_dk())
 
 
 def _fetch_all(sql: str, params: tuple = ()) -> list[dict]:
@@ -190,6 +203,7 @@ def remove_unapproved(mac_address: str, ip_address: str) -> None:
 
     _run("DELETE FROM UnApprovedAddresses WHERE mac_address = ? AND ip_address = ?", (mac, ip))
 
+
 def planScan(interval: int, scan_target: str, last_scanned_at: str | None = None) -> dict:
     if interval is None:
         raise ValueError("interval is required")
@@ -206,11 +220,13 @@ def planScan(interval: int, scan_target: str, last_scanned_at: str | None = None
     if not target:
         raise ValueError("scan_target is required")
 
-    now_dt = datetime.now()
+    # DK-tid (timezone-aware)
+    now_dt = _now_dt_dk()
     next_dt = now_dt + timedelta(minutes=interval_int)
 
+    # last_scanned_at kan være None ved første planlægning
     last_sql = last_scanned_at
-    next_sql = next_dt.strftime("%Y-%m-%d %H:%M:%S")
+    next_sql = _to_sqlite(next_dt)
 
     _run(
         """
@@ -234,6 +250,7 @@ def update_last_scan(scan_target: str, scanned_at: str | None = None) -> dict:
     if not target:
         raise ValueError("scan_target is required")
 
+    # hvis scanned_at ikke sendes, bruger vi DK "nu"
     last_sql = scanned_at or _now_sqlite()
 
     _run(
@@ -278,8 +295,9 @@ def set_last_and_next_from_interval(scan_target: str) -> dict:
     if not target:
         raise ValueError("scan_target is required")
 
-    now_dt = datetime.now()
-    now_sql = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+    # DK-tid (timezone-aware)
+    now_dt = _now_dt_dk()
+    now_sql = _to_sqlite(now_dt)
 
     rows = _fetch_all(
         """
@@ -296,7 +314,7 @@ def set_last_and_next_from_interval(scan_target: str) -> dict:
     interval_minutes = int(rows[0]["interval"])
 
     next_dt = now_dt + timedelta(minutes=interval_minutes)
-    next_sql = next_dt.strftime("%Y-%m-%d %H:%M:%S")
+    next_sql = _to_sqlite(next_dt)
 
     _run(
         """
@@ -319,6 +337,7 @@ def set_last_and_next_from_interval(scan_target: str) -> dict:
 
 
 def get_due_planned_scans() -> list[dict]:
+    # sammenligner i samme format som vi gemmer (DK lokal tid)
     now = _now_sqlite()
 
     return _fetch_all(
@@ -332,6 +351,7 @@ def get_due_planned_scans() -> list[dict]:
         (now,),
     )
 
+
 def get_all_planned_scans() -> list[dict]:
     return _fetch_all(
         """
@@ -343,6 +363,7 @@ def get_all_planned_scans() -> list[dict]:
           interval ASC
         """
     )
+
 
 def delete_planned_scan(interval: int) -> dict:
     if interval is None:

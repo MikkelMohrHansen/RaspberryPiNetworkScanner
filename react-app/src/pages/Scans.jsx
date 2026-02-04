@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Play, Plus, Scan, File, Clock, PauseCircle, Zap, Trash2, RefreshCw } from "lucide-react";
 
 const API_BASE = (import.meta?.env?.VITE_API_URL || "http://192.168.1.200:5000/api/v1").replace(/\/$/, "");
@@ -24,7 +24,7 @@ function Table({ columns, children }) {
             {columns.map((c) => (
               <th
                 key={c}
-                className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold text-foreground/70"
+                className="whitespace-nowrap px-3 py-2 text-xs font-semibold text-foreground/70"
               >
                 {c}
               </th>
@@ -60,25 +60,64 @@ function Pill({ children, tone = "neutral" }) {
   );
 }
 
-/** SQLite DATETIME "YYYY-MM-DD HH:MM:SS" -> Date */
 function parseSqliteDate(value) {
   if (!value) return null;
-  const iso = String(value).replace(" ", "T");
-  const d = new Date(iso);
+
+  const m = String(value).match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
+  );
+  if (!m) return null;
+
+  const [, yy, mo, dd, hh, mm, ss] = m;
+  // bygges som lokal Date-objekt (ingen browser-gæt på ISO)
+  const d = new Date(
+    Number(yy),
+    Number(mo) - 1,
+    Number(dd),
+    Number(hh),
+    Number(mm),
+    Number(ss ?? 0)
+  );
+
   if (Number.isNaN(d.getTime())) return null;
   return d;
 }
+const DK_TZ = "Europe/Copenhagen";
 
 function formatDateTime(value) {
   const d = parseSqliteDate(value);
   if (!d) return value ? String(value) : "—";
-  return d.toLocaleString("da-DK", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+  return new Intl.DateTimeFormat("da-DK", {
+    timeZone: DK_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(d);
 }
 
 function fromNowLabel(value) {
   const d = parseSqliteDate(value);
   if (!d) return "—";
-  const diffMs = d.getTime() - Date.now();
+
+  // beregn "nu" i DK-tid også (så labels passer)
+  const now = new Date();
+  const nowDkStr = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: DK_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(now); // "YYYY-MM-DD HH:MM:SS"
+
+  const nowDk = parseSqliteDate(nowDkStr);
+  const diffMs = d.getTime() - (nowDk?.getTime() ?? Date.now());
+
   const diffMin = Math.round(diffMs / 60000);
   if (diffMin <= 0) return "nu / forfalden";
   if (diffMin === 1) return "om 1 min";
@@ -173,21 +212,17 @@ export const Scans = () => {
     const interval = Number(intervalMin || 1);
     const target = (cidr || "").trim();
 
-    if (!target) {
-      setErr("CIDR / Range mangler");
-      return;
-    }
-    if (!Number.isFinite(interval) || interval <= 0) {
-      setErr("Interval skal være > 0");
-      return;
-    }
+    if (!target) return setErr("CIDR / Range mangler");
+    if (!Number.isFinite(interval) || interval <= 0) return setErr("Interval skal være > 0");
 
     const key = `plan:${interval}|${target}`;
+
     try {
       setErr("");
       setBusy(key, true);
 
       addLog(`Planlægger scan: ${target} (hver ${interval} min)`);
+      // ✅ Frontend sender kun interval + scan_target. Backend sætter next_scan_at.
       await apiJson("/planScan", {
         method: "POST",
         body: { interval, scan_target: target },
@@ -205,14 +240,17 @@ export const Scans = () => {
 
   const handleStop = async (row) => {
     const target = row?.scan_target;
+    const interval = row?.interval;
     if (!target) return;
 
-    const key = `stop:${row.interval}|${target}`;
+    const key = `stop:${interval}|${target}`;
+
     try {
       setErr("");
       setBusy(key, true);
 
       addLog(`Stopper planlagt scan (pause): ${target}`);
+      // ✅ sender kun scan_target
       await apiJson("/plannedScans/clearNext", {
         method: "PUT",
         body: { scan_target: target },
@@ -230,9 +268,11 @@ export const Scans = () => {
 
   const handleRunNow = async (row) => {
     const target = row?.scan_target;
+    const interval = row?.interval;
     if (!target) return;
 
-    const key = `run:${row.interval}|${target}`;
+    const key = `run:${interval}|${target}`;
+
     try {
       setErr("");
       setBusy(key, true);
@@ -240,7 +280,8 @@ export const Scans = () => {
       addLog(`Kører scan nu: ${target}`);
       await apiJson("/StartScan", { method: "POST" });
 
-      // Touch: sæt last=now og next=now+interval (på serveren)
+      // ✅ Frontend sender kun scan_target.
+      // Backend sætter last_scanned_at=nu og next_scan_at=nu+interval.
       await apiJson("/plannedScans/touch", {
         method: "PUT",
         body: { scan_target: target },
@@ -262,11 +303,13 @@ export const Scans = () => {
     if (interval == null) return;
 
     const key = `del:${interval}`;
+
     try {
       setErr("");
       setBusy(key, true);
 
       addLog(`Sletter planned scan (interval=${interval})`);
+      // ✅ sender kun interval
       await apiJson("/plannedScans/delete", {
         method: "DELETE",
         body: { interval },
@@ -282,7 +325,6 @@ export const Scans = () => {
     }
   };
 
-  // Placeholder results (ingen endpoint endnu)
   const results = [];
 
   return (
@@ -419,7 +461,7 @@ export const Scans = () => {
 
           {/* MAIN */}
           <main className="space-y-6 pb-10">
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6">
               <Card
                 title="Planlagte Scans"
                 right={
@@ -447,7 +489,7 @@ export const Scans = () => {
                       return (
                         <tr key={`${interval}|${target}`} className="hover:bg-foreground/5">
                           <Td>{target || "—"}</Td>
-                          <Td>{interval ?? "—"}</Td>
+                          <Td>{interval != null ? `${interval} min` : "—"}</Td>
                           <Td muted>
                             {next ? (
                               <div className="space-y-0.5">
@@ -509,7 +551,7 @@ export const Scans = () => {
                 </div>
               </Card>
 
-              <Card
+              {/* <Card
                 title="Scan resultater (placeholder)"
                 right={<Pill tone="neutral">{results.length} fundet</Pill>}
               >
@@ -522,7 +564,7 @@ export const Scans = () => {
                     </tr>
                   ) : null}
                 </Table>
-              </Card>
+              </Card> */}
             </div>
           </main>
         </div>
