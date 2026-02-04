@@ -24,8 +24,10 @@ def scan_worker_tick() -> None:
 
         print(f"[worker] {datetime.now().isoformat(timespec='seconds')} - Found {len(due_scans)} due scans")
 
-
-        scanner.main()
+        # NOTE: Midlertidigt slået scanning fra:
+        # scanner.main() kræver pt. CLI-args (target), og worker kalder den uden target -> SystemExit spam.
+        # Derfor er selve scanning deaktiveret her, men schedule bliver stadig "touched" (last/next opdateres).
+        # scanner.main()
 
 
         for row in due_scans:

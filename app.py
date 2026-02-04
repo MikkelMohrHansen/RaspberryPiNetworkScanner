@@ -22,8 +22,6 @@ app.config["JWT_COOKIE_SAMESITE"] = "Lax"
 app.config["JWT_ACCESS_COOKIE_PATH"] = "/api/v1/"
 app.config["JWT_REFRESH_COOKIE_PATH"] = "/api/v1/"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
-
-
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 
 jwt = JWTManager(app)
@@ -48,21 +46,26 @@ scheduler = APScheduler()
 
 @app.before_request
 def start_scheduler():
-    """Starter scheduler når Flask starter første gang."""
-    app.config["SCHEDULER_API_ENABLED"] = False  
+    app.config["SCHEDULER_API_ENABLED"] = False
+
+    # Hvis den allerede kører, så gør ingenting
+    if scheduler.running:
+        return
 
     scheduler.init_app(app)
-    scheduler.start()
 
     scheduler.add_job(
         id="scan_worker",
         func=scan_worker_tick,
         trigger="interval",
-        seconds=15,      # tjekker DB hvert 15. sekund
+        seconds=15,
         replace_existing=True,
-        max_instances=1, 
-        coalesce=True,   
+        max_instances=1,
+        coalesce=True,
     )
+
+    scheduler.start()
+
 
 
 @app.route("/")

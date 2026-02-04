@@ -1,7 +1,7 @@
 # Database/DB_Data.py
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from Database.DB_Connections import DB_Connections
 
 _db = DB_Connections("Database/SqliteDB")
@@ -209,7 +209,7 @@ def planScan(interval: int, scan_target: str, last_scanned_at: str | None = None
     now_dt = datetime.now()
     next_dt = now_dt + timedelta(minutes=interval_int)
 
-    last_sql = last_scanned_at  # None ved oprettelse giver god mening
+    last_sql = last_scanned_at
     next_sql = next_dt.strftime("%Y-%m-%d %H:%M:%S")
 
     _run(
@@ -331,3 +331,43 @@ def get_due_planned_scans() -> list[dict]:
         """,
         (now,),
     )
+
+def get_all_planned_scans() -> list[dict]:
+    return _fetch_all(
+        """
+        SELECT interval, last_scanned_at, next_scan_at, scan_target
+        FROM PlannedScans
+        ORDER BY
+          CASE WHEN next_scan_at IS NULL THEN 1 ELSE 0 END,
+          next_scan_at ASC,
+          interval ASC
+        """
+    )
+
+def delete_planned_scan(interval: int) -> dict:
+    if interval is None:
+        raise ValueError("interval is required")
+
+    try:
+        interval_int = int(interval)
+    except (TypeError, ValueError):
+        raise ValueError("interval must be an integer")
+
+    if interval_int <= 0:
+        raise ValueError("interval must be > 0")
+
+    rows = _fetch_all(
+        """
+        SELECT interval, last_scanned_at, next_scan_at, scan_target
+        FROM PlannedScans
+        WHERE interval = ?
+        """,
+        (interval_int,),
+    )
+
+    if not rows:
+        return {"ok": True, "deleted": False, "interval": interval_int}
+
+    _run("DELETE FROM PlannedScans WHERE interval = ?", (interval_int,))
+
+    return {"ok": True, "deleted": True, "interval": interval_int, "removed": rows[0]}
