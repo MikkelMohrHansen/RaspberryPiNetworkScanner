@@ -65,6 +65,7 @@ function formatDateTime(value) {
 
 async function fetchJson(url, { method = "GET", body, signal } = {}) {
   const res = await fetch(url, {
+    credentials: "include",
     method,
     signal,
     headers: body ? { "Content-Type": "application/json" } : undefined,
@@ -218,6 +219,7 @@ export const IpHandling = () => {
       // 1) addApproved (POST)
       await fetchJson(`${API_BASE}/addApproved`, {
         method: "POST",
+        credentials: "include",
         body: {
           mac_address: mac,
           ip_address: ip,
@@ -230,6 +232,7 @@ export const IpHandling = () => {
 
       // 2) removeUnapproved (DELETE) - KRÆVER både mac + ip i dit backend
       await fetchJson(`${API_BASE}/removeUnapproved`, {
+        credentials: "include",
         method: "DELETE",
         body: {
           mac_address: mac,

@@ -48,3 +48,29 @@ source .venv/bin/activate
 
 installer requirements
 pip install -r requirements.txt
+
+
+Git commandoer til simon med CLI
+
+Sørg for at være på main
+git checkout main
+git pull
+
+Opret og skift til ny branch og commit ændringer
+git checkout -b feature/<kort-navn>
+git add .
+git commit -m "besked"
+git push -u origin feature/<kort-navn>
+
+oprydning når pr er merged
+git checkout main
+git pull
+git branch -d feature/<kort-navn>
+
+Curl testing kommandoer
+
+Login
+curl -i -c cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}' \
+  http://127.0.0.1:5000/api/v1/login
