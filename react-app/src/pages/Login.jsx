@@ -1,21 +1,50 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { setAuthSessionCookie } from "@/lib/authCookie";
+
+const API_BASE = (import.meta?.env?.VITE_API_URL || "http://192.168.1.200:5000/api/v1").replace(/\/$/, "");
 
 export const Login = ({ onLogin }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/iphandling";
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
-    setAuthSessionCookie();
-    onLogin?.();
-    navigate(from, { replace: true });
-    // TODO: hook til din auth (Flask endpoint / JWT / session)
-    console.log({ email, password });
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // <-- VIGTIGT: modtag/send JWT HttpOnly cookie
+        body: JSON.stringify({
+          username: username.trim(),
+          password,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.ok) {
+        setError(data?.error || "Login fejlede");
+        setLoading(false);
+        return;
+      }
+
+      // Login ok: server har sat JWT cookie
+      onLogin?.();
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError("Kunne ikke kontakte API'et");
+      setLoading(false);
+    }
   }
 
   return (
@@ -56,11 +85,18 @@ export const Login = ({ onLogin }) => {
                 />
               </div>
 
+              {error && (
+                <p className="text-sm text-red-500">
+                  {error}
+                </p>
+              )}
+
               <button
                 type="submit"
-                className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                disabled={loading}
+                className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
               >
-                Login
+                {loading ? "Logger ind..." : "Login"}
               </button>
             </form>
           </div>

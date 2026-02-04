@@ -1,17 +1,23 @@
 
 === TABLE: ApprovedAddresses ===
+(empty)
 
-Row 1:
-  id: 1
-  mac_address: aa:bb:cc:dd:ee:ff
-  ip_address: 192.168.1.123
-  description: None
-  vendor: Unknown
-  first_seen: 2026-02-03 22:58:46
-  last_seen: 2026-02-03 22:58:51
+=== TABLE: PlannedScans ===
+(empty)
 
 === TABLE: UnApprovedAddresses ===
-(empty)
+
+Row 1:
+  id: 3
+  mac_address: aa:bb:cc:dd:ee:ff
+  ip_address: 192.168.1.123
+  description: Test device from curl
+  vendor: Unknown
+  first_seen: 2026-02-04T13:30:00
+  last_seen: 2026-02-04 13:42:21
 
 === TABLE: Users ===
-(empty)
+
+Row 1:
+  username: Admin
+  password: scrypt:32768:8:1$g3kOxa77qaWU3SzA$caa5de7041ed41153d8d3ddd8d1bee1c36efb5d2e5b95902ebe9a26174e5a3d0667ab609b5afa91571d269bf9eafb03db32c4cfcdbac57d42768fc4a7bfd70f8
