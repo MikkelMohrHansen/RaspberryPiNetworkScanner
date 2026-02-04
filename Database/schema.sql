@@ -31,5 +31,6 @@ CREATE TABLE IF NOT EXISTS PlannedScans
 (
   interval INTEGER NOT NULL PRIMARY KEY,
   last_scanned_at DATETIME ,
-  next_scan_at DATETIME 
+  next_scan_at DATETIME,
+  scan_target TEXT NOT NULL 
 )
