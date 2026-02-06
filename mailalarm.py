@@ -1,7 +1,7 @@
 import os
 import requests
 from datetime import datetime
-from Database.DB_data import get_unapproved
+from Database.DB_Data import get_unapproved
 from dotenv import load_dotenv
 
 load_dotenv("keys.env")
