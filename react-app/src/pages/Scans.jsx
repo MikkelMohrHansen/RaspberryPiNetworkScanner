@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Scan, Clock, PauseCircle, Zap, Trash2, RefreshCw } from "lucide-react";
 
-const API_BASE = (import.meta?.env?.VITE_API_URL || "http://127.0.0.1:5000/api/v1").replace(/\/$/, "");
+const API_BASE = (import.meta?.env?.VITE_API_URL || "http://192.168.1.217:5000/api/v1").replace(/\/$/, "");
 
 function Card({ title, children, right }) {
   return (
