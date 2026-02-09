@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const API_BASE = (import.meta?.env?.VITE_API_URL || "http://192.168.1.200:5000/api/v1").replace(/\/$/, "");
+const API_BASE = (import.meta?.env?.VITE_API_URL || "http://127.0.0.1:5000/api/v1").replace(/\/$/, "");
 
 export const Login = ({ onLogin }) => {
   const [username, setUsername] = useState("");
@@ -23,7 +23,7 @@ export const Login = ({ onLogin }) => {
       const res = await fetch(`${API_BASE}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // <-- VIGTIGT: modtag/send JWT HttpOnly cookie
+        credentials: "include",
         body: JSON.stringify({
           username: username.trim(),
           password,

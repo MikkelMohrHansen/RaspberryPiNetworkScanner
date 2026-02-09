@@ -6,24 +6,10 @@
 (empty)
 
 === TABLE: UnApprovedAddresses ===
-
-Row 1:
-  id: 1
-  mac_address: 80:ab:4d:73:4a:b1
-  ip_address: 192.168.1.1
-  description: None
-  vendor: Nokia Solutions and Networks GmbH & Co. KG
-  first_seen: 2026-02-05 17:19:02
-  last_seen: 2026-02-05 17:19:02
-
-Row 2:
-  id: 2
-  mac_address: 08:bf:b8:3d:ec:43
-  ip_address: 192.168.1.64
-  description: None
-  vendor: ASUSTek COMPUTER INC.
-  first_seen: 2026-02-05 17:19:02
-  last_seen: 2026-02-05 17:19:02
+(empty)
 
 === TABLE: Users ===
-(empty)
+
+Row 1:
+  username: admin
+  password: scrypt:32768:8:1$62B4B3pUQFYXGB6k$363a1cc2ffb45a328c4166beadd7071b189d4c9de987bcb17076a4a0030163aa966667f58d07e4578090b83534b62d6d5ede0aa0a7b28037c56e9fd5991fd82d
