@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Play, Plus, Scan, RefreshCw } from "lucide-react";
 import { AddIpModal } from "@/components/AddIpModal";
 
-const API_BASE = (import.meta.env.VITE_API_URL || "127.0.0.1:5000").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_URL || "192.168.1.217:5000").replace(/\/$/, "");
 
 function Card({ title, children, right }) {
   return (

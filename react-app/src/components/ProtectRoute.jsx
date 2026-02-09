@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 
-const API_BASE = (import.meta?.env?.VITE_API_URL || "http://127.0.0.1:5000/api/v1").replace(/\/$/, "");
+const API_BASE = (import.meta?.env?.VITE_API_URL || "http://192.168.1.217:5000/api/v1").replace(/\/$/, "");
 
 export const ProtectedRoute = () => {
   const location = useLocation();
